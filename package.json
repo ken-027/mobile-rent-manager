@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@notifee/react-native": "^7.5.0",
+    "@react-native-community/datetimepicker": "^6.7.5",
     "@react-navigation/bottom-tabs": "^6.5.7",
     "@react-navigation/native": "^6.1.6",
     "@react-navigation/native-stack": "^6.9.12",
@@ -19,6 +20,9 @@
     "react": "18.2.0",
     "react-native": "0.71.3",
     "react-native-background-timer": "^2.4.1",
+    "react-native-flipper": "^0.183.0",
+    "react-native-fs": "^2.20.0",
+    "react-native-modal-datetime-picker": "^14.0.1",
     "react-native-reanimated": "^3.0.0",
     "react-native-safe-area-context": "^4.5.0",
     "react-native-screens": "^3.20.0",
@@ -50,5 +54,8 @@
   },
   "jest": {
     "preset": "react-native"
+  },
+  "relativeDependencies": {
+    "react-native-flipper": "./node_modules/react-native-flipper"
   }
 }

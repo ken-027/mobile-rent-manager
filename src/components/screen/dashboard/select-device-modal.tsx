@@ -1,7 +1,7 @@
 /** @format */
 
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import { PropsWithChildren } from 'react'
+import { PropsWithChildren, useEffect, useState } from 'react'
 import AppModal from '../../common/app-modal'
 import {
   borderColor,
@@ -9,15 +9,15 @@ import {
   secondaryFont,
 } from '../../../config/variableStyle'
 import Card from '../../common/card'
+import { device } from '../../../types'
+import { toHour } from '../../../utils/format'
+import coinToSeconds from '../../../utils/coinToSeconds'
+import Model, { rentsSchema } from '../../../models'
 
 type props = PropsWithChildren<{
-  selectedDevice: {
-    model: string
-    brand: string
-    image: string
-  }
+  selectedDevice: device
   visible: boolean
-  onConfirm: any
+  onConfirm: (response: 'success' | 'fail') => void
   onClose: any
   onCancel: any
 }>
@@ -29,37 +29,111 @@ const SelectDeviceModal: React.FC<props> = ({
   onConfirm,
   onCancel,
 }) => {
+  // TODO: temporary here
+  const [coins, setCoins] = useState<number>(selectedDevice.pricePerHour)
+  const [user, setUser] = useState<string>('')
+  // const [seconds, setSeconds] = useState<number>(
+  //   coinToSeconds(selectedDevice.pricePerHour, coins),
+  // )
+
+  useEffect(() => {}, [])
+
+  const makeUnavailable = async () => {
+    try {
+      const conn = await Model.connection()
+      conn?.write(() => {
+        const updateDevice: any = conn.objectForPrimaryKey(
+          'Devices',
+          selectedDevice.id,
+        )
+        updateDevice.available = false
+      })
+    } catch (error: any) {
+      console.log(error.message)
+    }
+  }
+
   return (
     <AppModal
       title='Select Device'
+      contentHeight={380}
       visible={visible}
+      btnTextBottom={{
+        confirm: 'Start',
+        cancel: 'Cancel',
+      }}
       onCancel={onCancel}
-      onConfirm={onConfirm}
+      onConfirm={async () => {
+        let response: 'success' | 'fail'
+        try {
+          const model = await Model.connection()
+          let userModel: unknown, deviceModel: unknown
+
+          await model?.write(() => {
+            userModel = model.objects('Users').filtered('name == $0', user)[0]
+            deviceModel = model.objectForPrimaryKey(
+              'Devices',
+              selectedDevice.id,
+            )
+
+            console.log(coinToSeconds(selectedDevice.pricePerHour, coins))
+
+            model.create(rentsSchema.name, {
+              device: deviceModel,
+              user: userModel || {
+                name: user,
+                seconds: coinToSeconds(selectedDevice.pricePerHour, coins),
+                coins: coins,
+              },
+              status: 'started',
+            })
+
+            makeUnavailable()
+          })
+
+          response = 'success'
+        } catch (error: any) {
+          response = 'fail'
+          console.error(error.message)
+        }
+
+        onConfirm(response)
+      }}
       onClose={onClose}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.container}>
         {/* eslint-disable-next-line react-native/no-inline-styles */}
         <View style={{ flexBasis: '50%', gap: 10 }}>
           <View>
             <Text style={styles.label}>User</Text>
-            <TextInput style={styles.input} />
+            <TextInput
+              onChangeText={setUser}
+              style={styles.input}
+            />
           </View>
           <View>
             <Text style={styles.label}>Coins</Text>
             <TextInput
               keyboardType='numeric'
+              onChangeText={(val) => setCoins(Number(val))}
+              defaultValue={selectedDevice.pricePerHour.toString()}
               style={styles.input}
             />
           </View>
+          <Text style={styles.timeLeft}>
+            {toHour(
+              coinToSeconds(
+                selectedDevice.pricePerHour,
+                coins || selectedDevice.pricePerHour,
+              ),
+            )}
+            <Text style={styles.hours}> hour(s)</Text>
+          </Text>
         </View>
         <View>
           <Text style={styles.labelSmall}>Selected Device</Text>
-          <Card
-            availableDevice={{
-              brand: selectedDevice.brand,
-              model: selectedDevice.model,
-              image: selectedDevice.image,
-            }}
-          />
+          <Card availableDevice={selectedDevice} />
         </View>
       </ScrollView>
     </AppModal>
@@ -73,6 +147,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     padding: 20,
+    height: 'auto',
+  },
+  hours: {
+    fontSize: 14,
+    fontFamily: secondaryFont.regular,
   },
   label: {
     color: primaryColor,
@@ -83,11 +162,16 @@ const styles = StyleSheet.create({
   input: {
     borderColor: borderColor,
     borderRadius: 10,
-    paddingHorizontal: 10,
-    fontSize: 16,
-    padding: 5,
+    paddingHorizontal: 15,
+    fontSize: 20,
+    paddingVertical: 10,
     borderWidth: 1,
     fontFamily: secondaryFont.regular,
+  },
+  timeLeft: {
+    fontSize: 35,
+    color: primaryColor,
+    fontFamily: secondaryFont.bold,
   },
   labelSmall: {
     color: primaryColor,

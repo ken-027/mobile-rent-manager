@@ -3,7 +3,7 @@
  * @format
  */
 
-import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import {
   primaryColor,
   secondaryColor,
@@ -24,15 +24,13 @@ const Screen: React.FC<props> = ({ children, title }) => {
   return (
     <View style={styles.container}>
       {/* eslint-disable-next-line react-native/no-inline-styles */}
-      <ScrollView contentContainerStyle={{ flex: 1 }}>
-        <Text style={styles.header}>{title}</Text>
-        {children}
-        <Toast
-          position='bottom'
-          bottomOffset={20}
-          config={toastConfig}
-        />
-      </ScrollView>
+      <Text style={styles.header}>{title}</Text>
+      {children}
+      <Toast
+        position='bottom'
+        bottomOffset={20}
+        config={toastConfig}
+      />
     </View>
   )
 }
@@ -53,6 +51,6 @@ const styles = StyleSheet.create({
     fontSize: 25,
     textAlign: 'center',
     fontFamily: secondaryFont.extraBold,
-    marginBottom: 10,
+    // marginBottom: 0,
   },
 })

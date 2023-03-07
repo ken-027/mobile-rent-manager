@@ -11,8 +11,9 @@ import {
   secondaryFont,
 } from '../../../config/variableStyle'
 import Card from '../../common/card'
-import brands, { brand } from '../../../shared/brands'
-import deviceModel from '../../../models/deviceModel'
+import brands from '../../../shared/brands'
+import Model, { deviceSchema } from '../../../models'
+import { device } from '../../../types'
 
 type props = PropsWithChildren<{
   selectedDevice?: device | null
@@ -22,12 +23,6 @@ type props = PropsWithChildren<{
   onCancel: any
 }>
 
-type device = {
-  model: string
-  brand: brand
-  pricePerHour: number
-}
-
 const DeviceModal: React.FC<props> = ({
   visible,
   onClose,
@@ -36,20 +31,21 @@ const DeviceModal: React.FC<props> = ({
   selectedDevice,
 }) => {
   const [modelName, setmodelName] = useState<string>('')
-  const [rentPerHour, setrentPerHour] = useState<number>(0)
+  const [rentPerHour, setrentPerHour] = useState<number>(5)
+  const [selectedBrand, setselectedBrand] = useState<number>(0)
 
   const onAdd = async () => {
     try {
-      const conn = await deviceModel.connection()
+      const conn = await Model.connection()
 
       await conn?.write(() => {
-        conn.create(deviceModel.schema.name, {
-          brand: 1,
+        conn.create(deviceSchema.name, {
+          brand: selectedBrand,
           model: modelName,
           pricePerHour: +rentPerHour,
         })
       })
-      deviceModel.close()
+      // deviceModel.close()
       return true
     } catch (error: any) {
       console.log(error.message)
@@ -58,7 +54,21 @@ const DeviceModal: React.FC<props> = ({
   }
 
   const onUpdate = async () => {
-    return false
+    try {
+      const conn = await Model.connection()
+
+      conn?.write(() => {
+        const updateDevice: any = conn
+          .objects('Devices')
+          .filtered('id == $0', selectedDevice?.id)[0]
+
+        updateDevice.pricePerHour = rentPerHour
+      })
+      return true
+    } catch (error: any) {
+      console.log(error.message)
+      return false
+    }
   }
 
   return (
@@ -90,6 +100,7 @@ const DeviceModal: React.FC<props> = ({
               <Text style={styles.labelData}>{selectedDevice.model}</Text>
             ) : (
               <TextInput
+                placeholder='Code'
                 onChangeText={setmodelName}
                 style={styles.input}
               />
@@ -98,11 +109,12 @@ const DeviceModal: React.FC<props> = ({
           <View>
             <Text style={styles.label}>Coins/Hour</Text>
             <TextInput
+              placeholder='Peso'
               onChangeText={(val) => setrentPerHour(Number(val))}
               keyboardType='numeric'
               defaultValue={(selectedDevice
                 ? selectedDevice.pricePerHour
-                : 0
+                : rentPerHour
               ).toString()}
               style={styles.input}
             />
@@ -115,30 +127,34 @@ const DeviceModal: React.FC<props> = ({
           <ScrollView contentContainerStyle={{ paddingTop: 10 }}>
             {selectedDevice ? (
               <Card
-                availableDevice={{
-                  model: '',
-                  brand: '\t\t\t\t\t',
-                  image: selectedDevice.brand.image,
-                }}
+                brandOnly
+                availableDevice={selectedDevice}
               />
             ) : (
-              brands.map((item, index) => (
+              brands.map((item) => (
                 <View
-                  key={index}
+                  key={item.id}
                   // eslint-disable-next-line react-native/no-inline-styles
-                  style={{ position: 'relative' }}>
-                  <Icon
-                    style={styles.check}
-                    name='ios-checkmark-circle'
-                    size={30}
-                    color={secondaryColor}
-                  />
+                  style={{
+                    position: 'relative',
+                    opacity: selectedBrand === item.id ? 1 : 0.9,
+                  }}>
+                  {selectedBrand === item.id ? (
+                    <Icon
+                      style={styles.check}
+                      name='ios-checkmark-circle'
+                      size={30}
+                      color={secondaryColor}
+                    />
+                  ) : (
+                    ''
+                  )}
                   <Card
-                    onPress={() => console.log(item.id)}
+                    brandOnly
+                    onPress={() => setselectedBrand(item.id)}
                     availableDevice={{
-                      model: '',
-                      brand: '\t\t\t\t\t',
-                      image: item.image,
+                      ...(selectedDevice as any),
+                      brand: { ...item },
                     }}
                   />
                 </View>
@@ -169,9 +185,9 @@ const styles = StyleSheet.create({
   input: {
     borderColor: borderColor,
     borderRadius: 10,
-    paddingHorizontal: 10,
-    fontSize: 16,
-    padding: 5,
+    paddingHorizontal: 15,
+    fontSize: 20,
+    paddingVertical: 10,
     borderWidth: 1,
     fontFamily: secondaryFont.regular,
   },

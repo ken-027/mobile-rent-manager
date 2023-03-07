@@ -12,68 +12,87 @@ import {
 import Card from '../../common/card'
 import { toHour } from '../../../utils/format'
 import Icon from 'react-native-vector-icons/Ionicons'
+import { device, rent, user } from '../../../types'
+import Model, { rentsSchema } from '../../../models'
 import brands from '../../../shared/brands'
+import coinToSeconds from '../../../utils/coinToSeconds'
 
 type props = PropsWithChildren<{
-  selectedUser: {
-    name: string
-    timeLeft: number
-  }
-  selectedDevice?: {
-    brand: string
-    model: string
-    image: string
-  }
+  selectedUser: user
+  selectedRent?: rent
   visible: boolean
-  onConfirm: any
+  onConfirm: (response: 'success' | 'fail') => void
   onClose: any
   onCancel: any
 }>
 
-type device = {
-  model: string
-  brand: string
-  image: string
-}
-
-const devices: device[] = [
-  {
-    model: 'S-1324',
-    brand: brands[0].name,
-    image: brands[0].image,
-  },
-  {
-    model: 'Y-256',
-    brand: brands[1].name,
-    image: brands[1].image,
-  },
-  {
-    model: 'Note 8',
-    brand: brands[2].name,
-    image: brands[2].image,
-  },
-  {
-    model: 'H S8',
-    brand: brands[3].name,
-    image: brands[3].image,
-  },
-]
+const devices: device[] = []
 
 const ResumableUserModal: React.FC<props> = ({
   selectedUser,
-  selectedDevice,
+  selectedRent,
   visible,
   onClose,
   onCancel,
   onConfirm,
 }) => {
   const [addTime, setaddTime] = useState<number>(0)
+  const [coins, setCoins] = useState<number>(0)
+  const [selectedBrand, setselectedBrand] = useState<number>(0)
+  const [deviceList, setdeviceList] = useState<any>([])
+
+  const getDevice = async () => {
+    // setloading(true)
+    try {
+      const conn = await Model.connection()
+      const list = await conn?.objects('Devices')
+      // let list = await Model.all()
+      const data = list
+        ?.sorted('dateAdded', true)
+        .filtered('available == true && deleted == null')
+
+      Model.close()
+
+      setdeviceList(
+        data?.map((item: any) => ({
+          id: item.id,
+          model: item.model,
+          brand: brands[item.brand],
+          pricePerHour: item.pricePerHour,
+          deleted: item.deleted,
+        })),
+      )
+      // setloading(false)
+    } catch (error: any) {
+      console.error(error.message)
+    }
+  }
 
   return (
     <AppModal
-      title={selectedDevice ? 'Add Time' : 'Select Device'}
+      title={selectedRent ? 'Add Time' : 'Resume Account'}
       visible={visible}
-      onConfirm={onConfirm}
+      onConfirm={async () => {
+        let response: 'success' | 'fail' = 'fail'
+        try {
+          const conn = await Model.connection()
+
+          await conn?.write(() => {
+            const rentModel: any = conn.objectForPrimaryKey(
+              rentsSchema.name,
+              selectedRent?.id || '',
+            )
+
+            rentModel.user.seconds += addTime
+            rentModel.user.coins += coins
+          })
+
+          response = 'success'
+        } catch (error: any) {
+          console.error(error.message)
+        }
+        onConfirm(response)
+      }}
       btnTextBottom={{
         cancel: 'Cancel',
         confirm: 'Resume',
@@ -84,19 +103,27 @@ const ResumableUserModal: React.FC<props> = ({
         <View style={styles.group}>
           <View>
             <Text style={styles.label}>
-              {selectedDevice ? 'Coins' : 'Add Coins'}
+              {selectedRent ? 'Coins' : 'Add Coins'}
             </Text>
             <TextInput
               inputMode='numeric'
               keyboardType='numeric'
-              defaultValue={`${addTime}`}
-              onChangeText={(text) => setaddTime(text as unknown as number)}
+              defaultValue='0'
+              onChangeText={(val) => {
+                setCoins(Number(val))
+                setaddTime(
+                  coinToSeconds(
+                    Number(selectedRent?.device.pricePerHour),
+                    Number(val),
+                  ),
+                )
+              }}
               style={styles.input}
             />
           </View>
           <View>
             <Text style={styles.timeLeft}>
-              {toHour(selectedUser?.timeLeft + +addTime)}
+              {toHour(selectedUser.seconds + addTime)}
               <Text style={styles.hours}> hour(s)</Text>
             </Text>
             <Text
@@ -110,18 +137,12 @@ const ResumableUserModal: React.FC<props> = ({
         {/* eslint-disable-next-line react-native/no-inline-styles */}
         <View style={{ flex: 1, flexBasis: '50%', paddingTop: 20 }}>
           <Text style={styles.labelSmall}>
-            {selectedDevice ? 'Device that is using' : 'Select a Device'}
+            {selectedRent ? 'Device that is using' : 'Select a Device'}
           </Text>
           {/* eslint-disable-next-line react-native/no-inline-styles */}
           <ScrollView contentContainerStyle={{ paddingTop: 10 }}>
-            {selectedDevice ? (
-              <Card
-                availableDevice={{
-                  model: selectedDevice?.model,
-                  brand: selectedDevice?.brand,
-                  image: selectedDevice?.image,
-                }}
-              />
+            {selectedRent ? (
+              <Card availableDevice={selectedRent.device} />
             ) : (
               devices.map((item, index) => (
                 <View
@@ -136,11 +157,7 @@ const ResumableUserModal: React.FC<props> = ({
                   />
                   <Card
                     onPress={() => console.log(2)}
-                    availableDevice={{
-                      model: item.model,
-                      brand: item.brand,
-                      image: item.image,
-                    }}
+                    availableDevice={selectedRent}
                   />
                 </View>
               ))
@@ -170,9 +187,9 @@ const styles = StyleSheet.create({
   input: {
     borderColor: borderColor,
     borderRadius: 10,
-    paddingHorizontal: 10,
-    fontSize: 16,
-    padding: 5,
+    paddingHorizontal: 15,
+    fontSize: 20,
+    paddingVertical: 10,
     borderWidth: 1,
     fontFamily: secondaryFont.regular,
   },

@@ -15,21 +15,21 @@ import {
   secondaryFont,
 } from '../../config/variableStyle'
 import { toHour } from '../../utils/format'
+import { device, user } from '../../types'
 
 type props = PropsWithChildren<{
   onPress?: any
-  availableDevice?: {
-    brand: string
-    model: string
-    image: any
-  }
-  resumableUser?: {
-    name: string
-    time: number
-  }
+  availableDevice?: device
+  brandOnly?: boolean
+  resumableUser?: user
 }>
 
-const Card: React.FC<props> = ({ availableDevice, resumableUser, onPress }) => {
+const Card: React.FC<props> = ({
+  availableDevice,
+  resumableUser,
+  onPress,
+  brandOnly,
+}) => {
   useEffect(() => {}, [])
 
   return (
@@ -50,17 +50,13 @@ const Card: React.FC<props> = ({ availableDevice, resumableUser, onPress }) => {
         // eslint-disable-next-line react-native/no-inline-styles
         imageStyle={{
           ...styles.imgStyle,
-          opacity: resumableUser
-            ? 0.08
-            : availableDevice?.brand.trim().length
-            ? 0.3
-            : 1,
+          opacity: resumableUser ? 0.08 : !brandOnly ? 0.3 : 1,
           // transform: [{ scale: resumableUser ? 3.3 : 1.5 }],
         }}
         source={
           resumableUser
             ? require('../../assets/user-dark.png')
-            : availableDevice?.image
+            : availableDevice?.brand.image
         }>
         <Text
           numberOfLines={1}
@@ -69,7 +65,9 @@ const Card: React.FC<props> = ({ availableDevice, resumableUser, onPress }) => {
             ...styles.cardTitle,
             color: availableDevice ? secondaryColor : primaryColor,
           }}>
-          {resumableUser?.name || availableDevice?.brand}
+          {brandOnly
+            ? '\t\t\t\t\t'
+            : resumableUser?.name || availableDevice?.brand.name}
         </Text>
         <Text
           ellipsizeMode='tail'
@@ -78,7 +76,9 @@ const Card: React.FC<props> = ({ availableDevice, resumableUser, onPress }) => {
             ...styles.cardText,
             color: availableDevice ? secondaryColor : primaryColor,
           }}>
-          {availableDevice?.model || toHour(resumableUser?.time)}
+          {brandOnly
+            ? '\t\t\t\t\t'
+            : availableDevice?.model || toHour(resumableUser?.seconds)}
         </Text>
       </ImageBackground>
     </TouchableHighlight>
@@ -95,9 +95,11 @@ const styles = StyleSheet.create({
     padding: 20,
     width: 130,
     justifyContent: 'center',
+    borderColor: 'rgba(63, 63, 70, 0.3)',
+    borderWidth: 0.5,
     alignItems: 'center',
     position: 'relative',
-    marginBottom: 20,
+    marginBottom: 10,
     shadowColor: primaryColor,
     shadowOffset: { width: -2, height: 4 },
     shadowOpacity: 0.2,
@@ -125,6 +127,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontFamily: secondaryFont.bold,
+    textTransform: 'capitalize',
   },
   imgStyle: {
     opacity: 0.2,

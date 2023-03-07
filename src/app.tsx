@@ -70,12 +70,16 @@ function App(): JSX.Element {
       />
       <NavigationContainer>
         <Navigator
-          initialRouteName='Devices'
+          initialRouteName='Dashboard'
           screenOptions={({ route }) => ({
             ...styles,
             headerShown: false,
             headerShadowVisible: false,
             tabBarShowLabel: false,
+            tabBarStyle: {
+              shadowColor: secondaryColor,
+              borderTopColor: secondaryColor,
+            },
             // eslint-disable-next-line react/no-unstable-nested-components, @typescript-eslint/no-unused-vars
             tabBarIcon: ({ focused, color, size }) => {
               var iconName = ''

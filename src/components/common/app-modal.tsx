@@ -21,6 +21,7 @@ type props = PropsWithChildren<{
     confirm: string
     cancel: string
   }
+  contentHeight?: number
 }>
 
 const AppModal: React.FC<props> = ({
@@ -31,6 +32,7 @@ const AppModal: React.FC<props> = ({
   btnTextBottom,
   children,
   onConfirm,
+  contentHeight = 330,
 }) => {
   return (
     <Modal
@@ -40,7 +42,7 @@ const AppModal: React.FC<props> = ({
       presentationStyle='overFullScreen'
       visible={visible}>
       <View style={styles.container}>
-        <View style={styles.modalCard}>
+        <View style={{ ...styles.modalCard, minHeight: contentHeight }}>
           <View style={styles.cardHeader}>
             <Text style={styles.headerText}>{title}</Text>
             <TouchableOpacity onPress={onClose}>
@@ -92,7 +94,7 @@ const styles = StyleSheet.create({
     width: '90%',
     maxWidth: 350,
     borderRadius: 20,
-    minHeight: 330,
+    height: 'auto',
     overflow: 'hidden',
   },
   cardHeader: {

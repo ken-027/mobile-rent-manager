@@ -26,34 +26,23 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons'
 import type { PropsWithChildren } from 'react'
 import Toast from 'react-native-toast-message'
-import { toDateFormat, toHour, toSeconds } from '../../utils/format'
+import {
+  dateDiffToSecond,
+  toDateTimeFormat,
+  toHour,
+  toSeconds,
+} from '../../utils/format'
 import notification from '../../utils/notification'
 import { AndroidImportance } from '@notifee/react-native'
-
-type data = {
-  device: device
-  user: user
-  cost: number
-  date: Date
-}
-
-type user = {
-  name: string
-  timeLeft: number
-}
-
-type device = {
-  model: string
-  brand: string
-  image: string
-}
+import { rent } from '../../types'
+import Model, { rentsSchema } from '../../models'
 
 type props = PropsWithChildren<{
-  detail: data
+  detail: rent
   onAdd: any
-  onPause: ReturnType<(timeLeft: number) => any>
-  onRemove: any
-  onStop: ReturnType<() => any>
+  onPause: (timeLeft: number) => void
+  onRemove: (timeLeft: number) => void
+  onStop: any
 }>
 
 const RentedCard: React.FC<props> = ({
@@ -63,14 +52,19 @@ const RentedCard: React.FC<props> = ({
   onRemove,
   onStop,
 }) => {
-  const [isRunning, setRunning] = useState<boolean>(true)
+  LogBox.ignoreLogs([/NativeEventEmitter/])
+
+  const timeLeft = dateDiffToSecond(new Date(detail.dateAdded || ''))
+  const [isRunning, setRunning] = useState<boolean>(detail.status === 'started')
   const [timeRemaining, settimeRemaining] = useState<number>(
-    detail.user.timeLeft,
+    detail.user.seconds < timeLeft
+      ? 0
+      : detail.status === 'started'
+      ? detail.user.seconds - timeLeft
+      : detail.user.seconds,
   )
 
   useEffect(() => {
-    LogBox.ignoreLogs([/NativeEventEmitter/])
-
     const EventEmitter = Platform.select({
       ios: () => NativeAppEventEmitter,
       android: () => DeviceEventEmitter,
@@ -90,6 +84,7 @@ const RentedCard: React.FC<props> = ({
     }, 1000)
 
     if (!timeRemaining && !isRunning) {
+      updateRent()
       toast()
       notification('Timer Stop', `${detail.device.model} timer has stop`, {
         id: 'default',
@@ -109,8 +104,24 @@ const RentedCard: React.FC<props> = ({
     Toast.show({
       type: 'error',
       text1: 'Time ended',
-      text2: `${detail.device.brand} has ended`,
+      text2: `${detail.device.model} has ended`,
     })
+  }
+
+  const updateRent = async () => {
+    try {
+      const conn = await Model.connection()
+      conn?.write(() => {
+        const rentModel: any = conn.objectForPrimaryKey(
+          rentsSchema.name,
+          detail.id,
+        )
+
+        rentModel.user.seconds = timeRemaining
+      })
+    } catch (error: any) {
+      console.error(error.message)
+    }
   }
 
   const togglePause = () => {
@@ -138,7 +149,7 @@ const RentedCard: React.FC<props> = ({
   }
 
   const remove = () => {
-    onRemove()
+    onRemove(timeRemaining)
     Toast.show({
       type: 'success',
       text1: 'Device Rent',
@@ -157,7 +168,7 @@ const RentedCard: React.FC<props> = ({
         <TouchableHighlight
           onPress={togglePause}
           // eslint-disable-next-line react-native/no-inline-styles
-          style={{ flexBasis: '50%' }}>
+          style={{ flexBasis: '50%', maxWidth: 250 }}>
           <View style={styles.clockContainer}>
             <Image
               style={styles.clockImage}
@@ -206,7 +217,7 @@ const RentedCard: React.FC<props> = ({
             numberOfLines={1}
             ellipsizeMode='tail'
             style={styles.modelName}>
-            {detail.device.model}
+            {`${detail.device.brand.name} ${detail.device.model}`}
           </Text>
           <Text
             numberOfLines={1}
@@ -214,12 +225,12 @@ const RentedCard: React.FC<props> = ({
             style={styles.renterName}>
             {detail.user.name}
           </Text>
-          <Text style={styles.cost}>{detail.cost} pesos</Text>
+          <Text style={styles.cost}>{detail.user.coins} pesos</Text>
           <Text
             numberOfLines={1}
             ellipsizeMode='tail'
             style={styles.date}>
-            {toDateFormat(detail.date)}
+            {toDateTimeFormat(detail.dateAdded as Date)}
           </Text>
           <View
             style={{
@@ -257,6 +268,7 @@ const styles = StyleSheet.create({
     backgroundColor: primaryColor,
     borderRadius: 20,
     justifyContent: 'center',
+    marginBottom: 5,
     alignItems: 'center',
     position: 'relative',
     height: 150,
@@ -308,7 +320,8 @@ const styles = StyleSheet.create({
   },
   detailContainer: {
     backgroundColor: secondaryColor,
-    flexBasis: '50%',
+    // flexBasis: '50%',
+    flex: 1,
     height: '100%',
     borderBottomRightRadius: 20,
     borderTopRightRadius: 20,
@@ -316,6 +329,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     padding: 10,
     paddingRight: 5,
+    justifyContent: 'space-around',
   },
   buttonGroup: {
     flexDirection: 'row',
@@ -324,36 +338,33 @@ const styles = StyleSheet.create({
   },
   terminate: {
     position: 'absolute',
-    bottom: 7,
+    bottom: 15,
     right: 7,
     zIndex: 10,
   },
   modelName: {
     color: primaryColor,
-    fontSize: 20,
-    fontFamily: primaryFont.medium,
+    fontSize: 25,
+    fontFamily: secondaryFont.bold,
   },
   renterName: {
-    fontFamily: primaryFont.regular,
+    fontFamily: secondaryFont.regular,
     color: primaryColor,
-    fontSize: 16,
+    fontSize: 22,
   },
   cost: {
     color: primaryColor,
-    fontFamily: primaryFont.regular,
-    fontSize: 16,
+    fontFamily: secondaryFont.regular,
+    fontSize: 18,
   },
   date: {
     color: primaryColor,
-    fontFamily: primaryFont.regular,
+    fontFamily: secondaryFont.regular,
     fontSize: 14,
   },
   status: {
     height: 15,
     aspectRatio: 1 / 1,
-    position: 'absolute',
     borderRadius: 10,
-    bottom: 10,
-    left: 10,
   },
 })

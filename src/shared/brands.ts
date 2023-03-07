@@ -1,10 +1,6 @@
 /** @format */
 
-export type brand = {
-  id: number
-  name: string
-  image: string
-}
+import { brand } from '../types'
 
 const brands: brand[] = [
   { id: 0, name: 'Samsung', image: require('../assets/samsung.png') },

@@ -13,60 +13,17 @@ import {
 } from 'react-native'
 import { primaryColor, secondaryFont } from '../config/variableStyle'
 import Icon from 'react-native-vector-icons/Ionicons'
-import brands, { brand } from '../shared/brands'
+import brands from '../shared/brands'
 import AppDialog from '../components/common/app-dialog'
 import Toast from 'react-native-toast-message'
 import DeviceModal from '../components/screen/devices/device-modal'
 import DeviceCard from '../components/screen/devices/device-card'
-import deviceModel from '../models/deviceModel'
+import Model from '../models'
+import { device } from '../types'
 
 type props = PropsWithChildren<{
   navigation: NativeStackNavigationProp<any>
 }>
-
-type device = {
-  model: string
-  brand: brand
-  pricePerHour: number
-}
-
-// const devices: device[] = [
-//   {
-//     model: 'S-1324',
-//     brand: brands[0],
-//     pricePerHour: 5,
-//   },
-//   {
-//     model: 'Y-256',
-//     brand: brands[1],
-//     pricePerHour: 6,
-//   },
-//   {
-//     model: 'Note 8',
-//     brand: brands[2],
-//     pricePerHour: 5,
-//   },
-//   {
-//     model: 'H S8',
-//     brand: brands[3],
-//     pricePerHour: 5,
-//   },
-//   {
-//     model: 'Y-256',
-//     brand: brands[1],
-//     pricePerHour: 6,
-//   },
-//   {
-//     model: 'Note 8',
-//     brand: brands[2],
-//     pricePerHour: 5,
-//   },
-//   {
-//     model: 'H S8',
-//     brand: brands[3],
-//     pricePerHour: 5,
-//   },
-// ]
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const Devices: React.FC<props> = ({ navigation }) => {
@@ -75,6 +32,7 @@ const Devices: React.FC<props> = ({ navigation }) => {
   const [loading, setloading] = useState<boolean>(true)
   const [deviceList, setdeviceList] = useState<any>([])
   const [mode, setMode] = useState<'edit' | 'add'>('add')
+  const [statusResponse, setstatusResponse] = useState<'success' | ''>('')
   const [selectedDevice, setselectedDevice] = useState<device>({
     brand: {
       id: 0,
@@ -83,6 +41,8 @@ const Devices: React.FC<props> = ({ navigation }) => {
     },
     model: '',
     pricePerHour: 0,
+    id: '',
+    deleted: null,
   })
   const [showDialog, setshowDialog] = useState<boolean>(false)
   const [dialog, setDialog] = useState<{
@@ -103,25 +63,18 @@ const Devices: React.FC<props> = ({ navigation }) => {
 
   useEffect(() => {
     getDevice()
-  }, [])
+  }, [statusResponse])
 
-  useEffect(() => {
-    if (!loading) {
-      console.log(deviceList)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading])
+  useEffect(() => {}, [loading])
 
   const getDevice = async () => {
     setloading(true)
     try {
-      const conn = await deviceModel.connection()
+      const conn = await Model.connection()
       const list = await conn?.objects('Devices')
       // let list = await deviceModel.all()
-      const data = list?.sorted('id', true).filtered('deleted == null')
-      deviceModel.close()
-
-      console.log(data)
+      const data = list?.sorted('dateAdded', true).filtered('deleted == null')
+      Model.close()
       setdeviceList(
         data?.map((item: any) => ({
           id: item.id,
@@ -151,7 +104,7 @@ const Devices: React.FC<props> = ({ navigation }) => {
         onCancel={() => {
           setshowDialog(false)
         }}
-        onConfirm={() => {
+        onConfirm={async () => {
           setshowDialog(false)
           if (dialog.title === 'Deleting Device') {
             Toast.show({
@@ -159,7 +112,23 @@ const Devices: React.FC<props> = ({ navigation }) => {
               text1: 'Device',
               text2: `${selectedDevice.model} is successfully deleted`,
             })
+            try {
+              const conn = await Model.connection()
+
+              conn?.write(() => {
+                const updateDevice: any = conn.objectForPrimaryKey(
+                  'Devices',
+                  selectedDevice.id,
+                )
+
+                updateDevice.deleted = new Date()
+              })
+              setstatusResponse('success')
+            } catch (error: any) {
+              console.error(error.message)
+            }
           }
+          setstatusResponse('')
         }}
         onClose={() => {
           setshowDialog(false)
@@ -179,6 +148,7 @@ const Devices: React.FC<props> = ({ navigation }) => {
               title = 'Price Update'
               content = `Price update for ${selectedDevice.brand.name} ${selectedDevice.model}`
             }
+            setstatusResponse('success')
           } else {
             if (mode === 'add') {
               title = 'Device'
@@ -194,6 +164,7 @@ const Devices: React.FC<props> = ({ navigation }) => {
             text2: content,
           })
           setshowModal(false)
+          setstatusResponse('')
         }}
         onClose={() => {
           setshowModal(false)
@@ -202,9 +173,20 @@ const Devices: React.FC<props> = ({ navigation }) => {
           setshowModal(false)
         }}
       />
-      <View style={styles.rentedContainer}>
+      {/* <View style={styles.rentedContainer}> */}
+      <ScrollView
+        // indicatorStyle='black'
+        showsVerticalScrollIndicator={false}
+        // eslint-disable-next-line react-native/no-inline-styles
+        contentContainerStyle={{
+          gap: 5,
+          paddingBottom: 15,
+          paddingTop: 10,
+          paddingHorizontal: 10,
+          flex: deviceList?.length === 0 ? 1 : 0,
+        }}>
         <View style={styles.header}>
-          <Text style={styles.cardHeader}>Rented Devices</Text>
+          <Text style={styles.cardHeader}>Devices</Text>
           <TouchableOpacity
             onPress={() => {
               setshowModal(true)
@@ -217,71 +199,49 @@ const Devices: React.FC<props> = ({ navigation }) => {
             />
           </TouchableOpacity>
         </View>
-        <ScrollView
-          // indicatorStyle='black'
-          showsVerticalScrollIndicator={false}
-          // eslint-disable-next-line react-native/no-inline-styles
-          contentContainerStyle={{
-            gap: 15,
-            paddingBottom: 15,
-            paddingTop: 10,
-            paddingHorizontal: 10,
-            flex: deviceList.length === 0 ? 1 : 0,
-          }}>
-          {deviceList.map((item: any) => (
-            <DeviceCard
-              key={item.id}
-              device={item}
-              onEdit={() => {
-                setselectedDevice(item)
-                setMode('edit')
-                setshowModal(true)
-              }}
-              onDelete={() => {
-                setselectedDevice(item)
-                setDialog({
-                  message: `Are you sure you want to delete ${item.brand.name} ${item.model}?`,
-                  title: 'Deleting Device',
-                  button: {
-                    cancel: 'Cancel',
-                    confirm: 'Delete',
-                  },
-                })
 
-                setshowDialog(true)
-              }}
+        {deviceList.map((item: any) => (
+          <DeviceCard
+            key={item.id}
+            device={item}
+            onEdit={() => {
+              setselectedDevice(item)
+              setMode('edit')
+              setshowModal(true)
+            }}
+            onDelete={() => {
+              setselectedDevice(item)
+              setDialog({
+                message: `Are you sure you want to delete ${item.brand.name} ${item.model}?`,
+                title: 'Deleting Device',
+                button: {
+                  cancel: 'Cancel',
+                  confirm: 'Delete',
+                },
+              })
+
+              setshowDialog(true)
+            }}
+          />
+        ))}
+        {deviceList.length === 0 ? (
+          <View style={styles.noDataContainer}>
+            <Icon
+              name='ios-phone-portrait-outline'
+              size={70}
+              color={primaryColor}
+              // eslint-disable-next-line react-native/no-inline-styles
+              style={{ opacity: 0.8 }}
             />
-          ))}
-          {deviceList.length === 0 ? (
-            <View
-              style={{
-                flex: 1,
-                justifyContent: 'center',
-                alignItems: 'center',
-                // height: 300,
-              }}>
-              <Icon
-                name='ios-file-tray'
-                size={100}
-                color={primaryColor}
-                style={{ opacity: 0.5 }}
-              />
-              <Text
-                style={{
-                  fontFamily: secondaryFont.regular,
-                  color: primaryColor,
-                  fontSize: 18,
-                }}>
-                No device yet
-              </Text>
-            </View>
-          ) : (
-            <Text style={styles.label}>
-              Devices: <Text style={styles.number}>{deviceList.length}</Text>
-            </Text>
-          )}
-        </ScrollView>
-      </View>
+            <Text style={styles.noDataText}>No device yet</Text>
+          </View>
+        ) : (
+          <Text style={styles.label}>
+            Devices: <Text style={styles.number}>{deviceList.length}</Text>
+          </Text>
+        )}
+      </ScrollView>
+      {/* </View> */}
     </Screen>
   )
 }
@@ -299,10 +259,11 @@ const styles = StyleSheet.create({
     color: primaryColor,
     marginBottom: 5,
     fontFamily: secondaryFont.bold,
-    paddingHorizontal: 10,
+    // paddingHorizontal: 10,
   },
   label: {
     fontSize: 18,
+    marginTop: 10,
     paddingHorizontal: 10,
     color: primaryColor,
     fontFamily: secondaryFont.bold,
@@ -317,5 +278,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 10,
+  },
+  noDataContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    // height: 300,
+  },
+  noDataText: {
+    fontFamily: secondaryFont.regular,
+    color: primaryColor,
+    marginTop: 10,
+    fontSize: 18,
   },
 })

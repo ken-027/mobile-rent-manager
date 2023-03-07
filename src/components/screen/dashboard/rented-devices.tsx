@@ -4,127 +4,50 @@ import { useState, useEffect } from 'react'
 import { LogBox, StyleSheet, Text, View } from 'react-native'
 import type { PropsWithChildren } from 'react'
 import { primaryColor, secondaryFont } from '../../../config/variableStyle'
-import { ScrollView } from 'react-native'
 import RentedCard from '../../common/rented-card'
 import ResumableUserModal from './resumable-user-modal'
 import Toast from 'react-native-toast-message'
-import brands from '../../../shared/brands'
 import AppDialog from '../../common/app-dialog'
 import notification from '../../../utils/notification'
 import { AndroidImportance } from '@notifee/react-native'
+import Model, { rentsSchema } from '../../../models'
+import { rent } from '../../../types'
+import brands from '../../../shared/brands'
+import Icon from 'react-native-vector-icons/Ionicons'
 
 type props = PropsWithChildren<{}>
-
-type rent = {
-  detail: {
-    cost: number
-    user: user
-    device: device
-    date: Date
-  }
-}
-
-type device = {
-  model: string
-  brand: string
-  image: string
-}
-
-type user = {
-  name: string
-  timeLeft: number
-}
-
-const users: user[] = [
-  {
-    name: 'User One',
-    timeLeft: 5556,
-  },
-  {
-    name: 'User Two',
-    timeLeft: 1234,
-  },
-  {
-    name: 'User Three',
-    timeLeft: 1234,
-  },
-  {
-    name: 'User One',
-    timeLeft: 101255,
-  },
-]
-
-const devices: device[] = [
-  {
-    model: 'S-1324',
-    image: brands[0].image,
-    brand: brands[0].name,
-  },
-  {
-    model: 'Y-256',
-    image: brands[1].image,
-    brand: brands[1].name,
-  },
-  {
-    model: 'Note 8',
-    image: brands[2].image,
-    brand: brands[2].name,
-  },
-  {
-    model: 'H S8',
-    image: brands[3].image,
-    brand: brands[3].name,
-  },
-]
-
-const rentList: rent[] = [
-  {
-    detail: {
-      cost: 10,
-      user: users[0],
-      device: devices[0],
-      date: new Date(),
-    },
-  },
-  {
-    detail: {
-      cost: 10,
-      device: devices[1],
-      user: users[1],
-      date: new Date(),
-    },
-  },
-  {
-    detail: {
-      cost: 10,
-      device: devices[2],
-      user: users[2],
-      date: new Date(),
-    },
-  },
-  {
-    detail: {
-      cost: 10,
-      device: devices[3],
-      user: users[3],
-      date: new Date(),
-    },
-  },
-]
 
 const RentedDevices: React.FC<props> = ({}) => {
   LogBox.ignoreLogs([/NativeEventEmitter/])
 
+  const [showDialog, setshowDialog] = useState<boolean>(false)
+  const [isRefresh, setisRefresh] = useState<boolean>(false)
   const [showModal, setshowModal] = useState<boolean>(false)
+  const [loading, setLoading] = useState<boolean>(false)
+  const [rentList, setrentList] = useState<rent[]>([])
   const [selectedRent, setselectedRent] = useState<rent>({
-    detail: {
-      cost: 0,
-      date: new Date(),
-      device: { brand: '', image: '', model: '' },
-      user: { name: '', timeLeft: 0 },
+    id: '',
+    dateAdded: new Date(),
+    device: {
+      brand: {
+        id: 0,
+        image: '',
+        name: '',
+      },
+      deleted: false,
+      id: '',
+      model: '',
+      pricePerHour: 0,
+    },
+    status: 'stopped',
+    user: {
+      id: '',
+      coins: 0,
+      seconds: 0,
+      name: '',
     },
   })
-  const [showDialog, setshowDialog] = useState<boolean>(false)
+
   const [dialog, setDialog] = useState<{
     title: 'Terminate' | 'Add Time' | 'Time Expired' | ''
     message: string
@@ -141,7 +64,99 @@ const RentedDevices: React.FC<props> = ({}) => {
     },
   })
 
-  useEffect(() => {}, [showDialog, showModal])
+  useEffect(() => {
+    getRents()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRefresh])
+
+  useEffect(() => {
+    // console.log(rentList)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showDialog, showModal, loading])
+
+  const onRefresh = () => setisRefresh((prevState) => !prevState)
+
+  const getRents = async () => {
+    setLoading(true)
+    try {
+      const rentModel = await Model.connection()
+      const list: any = await rentModel
+        ?.objects(rentsSchema.name)
+        .filtered(
+          `device.available == $0 && status != 'removed' && device.deleted == null`,
+          false,
+        )
+      // console.log(list?.length)
+      Model.close()
+      setrentList(
+        list.map((item: any) => ({
+          id: item.id,
+          dateAdded: item.dateAdded,
+          device: {
+            brand: {
+              id: brands[item.device.brand]?.id,
+              image: brands[item.device.brand]?.image,
+              name: brands[item.device.brand]?.name,
+            },
+            deleted: item.device.deleted,
+            id: item.device.id,
+            model: item.device.model,
+            pricePerHour: item.device.pricePerHour,
+          },
+          status: item.status,
+          user: {
+            id: item.user.id,
+            coins: item.user.coins,
+            seconds: item.user.seconds,
+            name: item.user.name,
+          },
+        })),
+      )
+    } catch (error: any) {
+      console.error(error.message)
+    }
+    setLoading(false)
+  }
+
+  const remove = async () => {
+    let success = false
+
+    try {
+      const conn = await Model.connection()
+
+      await conn?.write(() => {
+        const rentModel: any = conn.objectForPrimaryKey(
+          rentsSchema.name,
+          selectedRent.id,
+        )
+
+        rentModel.user.seconds = 0
+        rentModel.status = 'stopped'
+        rentModel.device = null
+      })
+
+      success = true
+      onRefresh()
+    } catch (error: any) {
+      console.error(error.message)
+    }
+    if (success) {
+      notification(
+        'Timer Stop',
+        `${selectedRent?.device.model} is available now`,
+        {
+          id: 'default',
+          name: 'default channel',
+          priority: AndroidImportance.HIGH,
+        },
+      )
+      Toast.show({
+        type: 'success',
+        text1: 'Device Rent',
+        text2: `${selectedRent?.device.model} is available now`,
+      })
+    }
+  }
 
   return (
     <>
@@ -154,33 +169,16 @@ const RentedDevices: React.FC<props> = ({}) => {
           cancel: dialog.button.cancel,
           confirm: dialog.button.confirm,
         }}
-        onCancel={() => {
+        onCancel={async () => {
           setshowDialog(false)
           if (dialog.title === 'Time Expired') {
-            Toast.show({
-              type: 'success',
-              text1: 'Device Rent',
-              text2: `${selectedRent.detail.device.model} is available now`,
-            })
+            remove()
           }
         }}
-        onConfirm={() => {
+        onConfirm={async () => {
           setshowDialog(false)
           if (dialog.title === 'Terminate') {
-            notification(
-              'Timer Stop',
-              `${selectedRent.detail.device.model} is available now`,
-              {
-                id: 'default',
-                name: 'default channel',
-                priority: AndroidImportance.HIGH,
-              },
-            )
-            Toast.show({
-              type: 'success',
-              text1: 'Device Rent',
-              text2: `${selectedRent.detail.device.model} is available now`,
-            })
+            remove()
           } else if (dialog.title === 'Time Expired') {
             setshowModal(true)
           }
@@ -190,72 +188,125 @@ const RentedDevices: React.FC<props> = ({}) => {
         }}
       />
       <ResumableUserModal
-        onConfirm={() => {
-          setshowModal(false)
-          Toast.show({
-            type: 'success',
-            text1: 'Rent Status',
-            text2: `${selectedRent.detail.user?.name} is resumed`,
-          })
+        onConfirm={(response) => {
+          if (response === 'success') {
+            onRefresh()
+            setshowModal(false)
+            Toast.show({
+              type: 'success',
+              text1: 'Rent Status',
+              text2: `${selectedRent?.user.name} is resumed`,
+            })
+          }
         }}
-        selectedDevice={selectedRent.detail.device}
+        selectedRent={selectedRent}
         onClose={() => {
           setshowModal(false)
         }}
         onCancel={() => {
           setshowModal(false)
         }}
-        selectedUser={selectedRent.detail.user}
+        selectedUser={{
+          name: selectedRent.user.name,
+          coins: selectedRent?.user.coins,
+          seconds: selectedRent?.user.seconds,
+          id: selectedRent?.user.id,
+        }}
         visible={showModal}
       />
-      <View style={styles.rentedContainer}>
+      <View
+        // eslint-disable-next-line react-native/no-inline-styles
+        style={{
+          ...styles.rentedContainer,
+          height: rentList.length ? 'auto' : 300,
+        }}>
         <Text style={styles.cardHeader}>Rented Devices</Text>
-        <ScrollView
-          // indicatorStyle='black'
-          showsVerticalScrollIndicator={false}
-          // eslint-disable-next-line react-native/no-inline-styles
-          contentContainerStyle={{
-            gap: 15,
-            paddingBottom: 15,
-            paddingHorizontal: 10,
-          }}>
-          {rentList.map((item, index) => (
-            <RentedCard
-              onAdd={() => {
-                setselectedRent(item)
-                setshowModal(true)
-              }}
-              onPause={(timeRemaining: number) => {
-                setselectedRent(item)
-                if (timeRemaining <= 0) {
+        {rentList.length ? (
+          rentList.map((item: rent) => {
+            return (
+              <RentedCard
+                onAdd={() => {
+                  setselectedRent(item)
+                  setshowModal(true)
+                }}
+                onPause={async (timeRemaining: number) => {
+                  setselectedRent(item)
+                  if (timeRemaining <= 0) {
+                    setDialog({
+                      message: 'No time left. Please add to continue!',
+                      title: 'Time Expired',
+                      button: {
+                        cancel: 'Remove',
+                        confirm: 'Add Time',
+                      },
+                    })
+                    setshowDialog(true)
+                  } else {
+                    try {
+                      const conn = await Model.connection()
+
+                      await conn?.write(() => {
+                        const rentModel: any = conn.objectForPrimaryKey(
+                          rentsSchema.name,
+                          item.id,
+                        )
+
+                        rentModel.status =
+                          rentModel.status === 'paused' ? 'started' : 'paused'
+                        rentModel.user.seconds = timeRemaining
+                      })
+                      onRefresh()
+                    } catch (error: any) {
+                      console.error(error.message)
+                    }
+                  }
+                }}
+                onStop={() => {
+                  setselectedRent(item)
                   setDialog({
-                    message: 'No time left. Please add to continue!',
-                    title: 'Time Expired',
+                    message: 'Are you sure you want to stop the timer?',
+                    title: 'Terminate',
                     button: {
-                      cancel: 'Remove',
-                      confirm: 'Add Time',
+                      cancel: 'Cancel',
+                      confirm: 'Stop',
                     },
                   })
                   setshowDialog(true)
-                }
-              }}
-              onStop={() => {
-                setDialog({
-                  message: 'Are you sure you want to stop the timer?',
-                  title: 'Terminate',
-                  button: {
-                    cancel: 'Cancel',
-                    confirm: 'Stop',
-                  },
-                })
-                setshowDialog(true)
-              }}
-              onRemove={() => console.log(item)}
-              key={index}
-              detail={item.detail}
+                }}
+                onRemove={async (timeLeft: number) => {
+                  try {
+                    const conn = await Model.connection()
+                    conn?.write(() => {
+                      const rentModel: any = conn.objectForPrimaryKey(
+                        rentsSchema.name,
+                        item.id,
+                      )
+                      rentModel.device.available = true
+                      rentModel.status = 'removed'
+                      rentModel.user.seconds = timeLeft
+                    })
+                    onRefresh()
+                  } catch (error: any) {
+                    console.error(error.message)
+                  }
+                }}
+                key={item.id}
+                detail={item}
+              />
+            )
+          })
+        ) : (
+          <View style={styles.noDataContainer}>
+            <Icon
+              name='ios-phone-portrait-outline'
+              size={70}
+              color={primaryColor}
+              // eslint-disable-next-line react-native/no-inline-styles
+              style={{ opacity: 0.8 }}
             />
-          ))}
-        </ScrollView>
+            <Text style={styles.noDataText}>No rented devices</Text>
+          </View>
+        )}
       </View>
     </>
   )
@@ -265,16 +316,27 @@ export default RentedDevices
 
 const styles = StyleSheet.create({
   rentedContainer: {
-    // width: '100%',
-    // marginBottom: 'auto',
-    flex: 1,
+    paddingHorizontal: 10,
   },
   cardHeader: {
     fontSize: 20,
     color: primaryColor,
     marginBottom: 5,
     fontFamily: secondaryFont.bold,
-    marginLeft: 10,
+    // marginLeft: 10,
     paddingHorizontal: 10,
+  },
+  noDataContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+    paddingTop: 5,
+    flex: 1,
+  },
+  noDataText: {
+    fontFamily: secondaryFont.regular,
+    color: primaryColor,
+    fontSize: 16,
+    marginTop: 5,
   },
 })

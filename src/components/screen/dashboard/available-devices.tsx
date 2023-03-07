@@ -10,68 +10,87 @@ import SelectDeviceModal from './select-device-modal'
 import { Toast } from 'react-native-toast-message/lib/src/Toast'
 import { toHour } from '../../../utils/format'
 import brands from '../../../shared/brands'
-// import Dialog from '../../common/dialog'
+import { device } from '../../../types'
+import Model from '../../../models'
+import Icon from 'react-native-vector-icons/Ionicons'
+import { useIsFocused } from '@react-navigation/native'
 
 type props = PropsWithChildren<{}>
 
-type device = {
-  model: string
-  brand: string
-  image: string
-}
-
-const devices: device[] = [
-  {
-    model: 'S-1324',
-    brand: brands[0].name,
-    image: brands[0].image,
-  },
-  {
-    model: 'Y-256',
-    brand: brands[1].name,
-    image: brands[1].image,
-  },
-  {
-    model: 'Redmi Note 8',
-    brand: brands[2].name,
-    image: brands[2].image,
-  },
-  {
-    model: 'H S8',
-    brand: brands[3].name,
-    image: brands[3].image,
-  },
-]
-
 const AvailableDevices: React.FC<props> = ({}) => {
+  const isFocus = useIsFocused()
+
   const [showModal, setshowModal] = useState<boolean>(false)
+  const [loading, setloading] = useState<boolean>(true)
+  const [deviceList, setdeviceList] = useState<any>([])
   const [selectedDevice, setselectedDevice] = useState<device>({
-    image: '',
+    brand: {
+      id: 0,
+      image: '',
+      name: '',
+    },
+    deleted: null,
+    id: '',
     model: '',
-    brand: '',
+    pricePerHour: 0,
   })
 
-  useEffect(() => {}, [showModal])
+  useEffect(() => {
+    getDevice()
+  }, [isFocus, showModal])
+
+  useEffect(() => {}, [loading, showModal])
 
   const onSelect = (item: device) => {
     setshowModal(true)
-    setselectedDevice({
-      brand: item.brand,
-      image: item.image,
-      model: item.model,
-    })
+    setselectedDevice(item)
+  }
+
+  const getDevice = async () => {
+    setloading(true)
+    try {
+      const conn = await Model.connection()
+      const list = await conn?.objects('Devices')
+      // let list = await Model.all()
+      const data = list
+        ?.sorted('dateAdded', true)
+        .filtered('available == true && deleted == null')
+
+      Model.close()
+
+      setdeviceList(
+        data?.map((item: any) => ({
+          id: item.id,
+          model: item.model,
+          brand: brands[item.brand],
+          pricePerHour: item.pricePerHour,
+          deleted: item.deleted,
+        })),
+      )
+      setloading(false)
+    } catch (error: any) {
+      console.error(error.message)
+    }
   }
 
   return (
     <>
       <SelectDeviceModal
         visible={showModal}
-        onConfirm={() => {
-          Toast.show({
-            type: 'success',
-            text1: 'Rent Status',
-            text2: `${selectedDevice.model} is started ${toHour(3000)} hours`,
-          })
+        onConfirm={async (response) => {
+          if (response === 'success') {
+            Toast.show({
+              type: 'success',
+              text1: 'Rent Status',
+              text2: `${selectedDevice.model} is started ${toHour(3000)} hours`,
+            })
+          } else {
+            Toast.show({
+              type: 'error',
+              text1: 'Available Device',
+              text2: `There's an error`,
+            })
+          }
           setshowModal(false)
         }}
         onClose={() => {
@@ -88,19 +107,33 @@ const AvailableDevices: React.FC<props> = ({}) => {
           // indicatorStyle='white'
           showsHorizontalScrollIndicator={false}
           // eslint-disable-next-line react-native/no-inline-styles
-          contentContainerStyle={{ gap: 15, paddingHorizontal: 10 }}
+          contentContainerStyle={{
+            gap: 5,
+            paddingHorizontal: 10,
+            width: deviceList?.length ? 'auto' : '100%',
+            justifyContent: deviceList?.length ? 'flex-start' : 'center',
+          }}
           horizontal>
-          {devices.map((item, index) => (
-            <Card
-              onPress={() => onSelect(item)}
-              key={index}
-              availableDevice={{
-                model: item.model,
-                brand: item.brand,
-                image: item.image,
-              }}
-            />
-          ))}
+          {deviceList?.length ? (
+            deviceList.map((item: device) => (
+              <Card
+                onPress={() => onSelect(item)}
+                key={item.id}
+                availableDevice={item}
+              />
+            ))
+          ) : (
+            <View style={styles.noDataContainer}>
+              <Icon
+                name='ios-phone-portrait-outline'
+                size={50}
+                color={primaryColor}
+                // eslint-disable-next-line react-native/no-inline-styles
+                style={{ opacity: 0.8 }}
+              />
+              <Text style={styles.noData}>No available devices</Text>
+            </View>
+          )}
         </ScrollView>
       </View>
     </>
@@ -112,7 +145,7 @@ export default AvailableDevices
 const styles = StyleSheet.create({
   cardContainer: {
     maxHeight: 120,
-    marginBottom: 5,
+    // marginBottom: 5,
   },
   cardHeader: {
     fontSize: 20,
@@ -121,5 +154,17 @@ const styles = StyleSheet.create({
     fontFamily: secondaryFont.bold,
     marginLeft: 10,
     paddingHorizontal: 10,
+  },
+  noDataContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+    paddingTop: 5,
+  },
+  noData: {
+    fontFamily: secondaryFont.regular,
+    color: primaryColor,
+    fontSize: 16,
+    marginTop: 5,
   },
 })

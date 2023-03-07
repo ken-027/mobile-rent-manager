@@ -16,7 +16,7 @@ import {
   redColor,
 } from '../../../config/variableStyle'
 import type { PropsWithChildren } from 'react'
-import { brand } from '../../../shared/brands'
+import { brand } from '../../../types'
 
 type device = {
   model: string
@@ -123,6 +123,7 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     flexBasis: '30%',
+    maxWidth: 200,
     justifyContent: 'center',
     alignItems: 'center',
   },
