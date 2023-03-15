@@ -34,7 +34,7 @@ const Dashboard: React.FC<props> = ({ navigation }) => {
         }}>
         <AvailableDevices />
         <ResumableUsers />
-        <RentedDevices />
+        {/* <RentedDevices /> */}
       </ScrollView>
     </Screen>
   )

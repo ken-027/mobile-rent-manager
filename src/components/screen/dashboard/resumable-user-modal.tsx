@@ -1,7 +1,7 @@
 /** @format */
 
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import { PropsWithChildren, useState } from 'react'
+import { PropsWithChildren, useEffect, useState } from 'react'
 import AppModal from '../../common/app-modal'
 import {
   borderColor,
@@ -26,8 +26,6 @@ type props = PropsWithChildren<{
   onCancel: any
 }>
 
-const devices: device[] = []
-
 const ResumableUserModal: React.FC<props> = ({
   selectedUser,
   selectedRent,
@@ -38,10 +36,14 @@ const ResumableUserModal: React.FC<props> = ({
 }) => {
   const [addTime, setaddTime] = useState<number>(0)
   const [coins, setCoins] = useState<number>(0)
-  const [selectedBrand, setselectedBrand] = useState<number>(0)
+  const [selectedDevice, setselectedDevice] = useState<device>()
   const [deviceList, setdeviceList] = useState<any>([])
 
-  const getDevice = async () => {
+  useEffect(() => {
+    getAvailableDevice()
+  }, [])
+
+  const getAvailableDevice = async () => {
     // setloading(true)
     try {
       const conn = await Model.connection()
@@ -51,7 +53,7 @@ const ResumableUserModal: React.FC<props> = ({
         ?.sorted('dateAdded', true)
         .filtered('available == true && deleted == null')
 
-      Model.close()
+      // Model.close()
 
       setdeviceList(
         data?.map((item: any) => ({
@@ -94,8 +96,9 @@ const ResumableUserModal: React.FC<props> = ({
         onConfirm(response)
       }}
       btnTextBottom={{
-        cancel: 'Cancel',
+        cancel: !selectedRent ? 'Remove' : 'Cancel',
         confirm: 'Resume',
+        cancelRed: !selectedRent ? true : false,
       }}
       onCancel={onCancel}
       onClose={onClose}>
@@ -111,12 +114,23 @@ const ResumableUserModal: React.FC<props> = ({
               defaultValue='0'
               onChangeText={(val) => {
                 setCoins(Number(val))
-                setaddTime(
-                  coinToSeconds(
-                    Number(selectedRent?.device.pricePerHour),
-                    Number(val),
-                  ),
-                )
+                if (selectedRent) {
+                  setaddTime(
+                    coinToSeconds(
+                      Number(selectedRent.device?.pricePerHour),
+                      Number(val),
+                    ),
+                  )
+                } else {
+                  if (selectedDevice) {
+                    setaddTime(
+                      coinToSeconds(
+                        Number(selectedDevice?.pricePerHour),
+                        Number(val),
+                      ),
+                    )
+                  }
+                }
               }}
               style={styles.input}
             />
@@ -142,22 +156,29 @@ const ResumableUserModal: React.FC<props> = ({
           {/* eslint-disable-next-line react-native/no-inline-styles */}
           <ScrollView contentContainerStyle={{ paddingTop: 10 }}>
             {selectedRent ? (
-              <Card availableDevice={selectedRent.device} />
+              <Card availableDevice={selectedRent.device as device} />
             ) : (
-              devices.map((item, index) => (
+              deviceList.map((item: device) => (
                 <View
-                  key={index}
+                  key={item.id}
                   // eslint-disable-next-line react-native/no-inline-styles
                   style={{ position: 'relative' }}>
-                  <Icon
-                    style={styles.check}
-                    name='ios-checkmark-circle'
-                    size={30}
-                    color={secondaryColor}
-                  />
+                  {selectedDevice?.id === item.id ? (
+                    <Icon
+                      style={styles.check}
+                      name='ios-checkmark-circle'
+                      size={30}
+                      color={secondaryColor}
+                    />
+                  ) : null}
                   <Card
-                    onPress={() => console.log(2)}
-                    availableDevice={selectedRent}
+                    onPress={() => {
+                      setselectedDevice(item)
+                      setaddTime(
+                        coinToSeconds(Number(item.pricePerHour), coins),
+                      )
+                    }}
+                    availableDevice={item}
                   />
                 </View>
               ))

@@ -86,7 +86,7 @@ const RentedCard: React.FC<props> = ({
     if (!timeRemaining && !isRunning) {
       updateRent()
       toast()
-      notification('Timer Stop', `${detail.device.model} timer has stop`, {
+      notification('Timer Stop', `${detail.device?.model} timer has stop`, {
         id: 'default',
         name: 'default channel',
         priority: AndroidImportance.HIGH,
@@ -104,7 +104,7 @@ const RentedCard: React.FC<props> = ({
     Toast.show({
       type: 'error',
       text1: 'Time ended',
-      text2: `${detail.device.model} has ended`,
+      text2: `${detail.device?.model} has ended`,
     })
   }
 
@@ -112,12 +112,13 @@ const RentedCard: React.FC<props> = ({
     try {
       const conn = await Model.connection()
       conn?.write(() => {
-        const rentModel: any = conn.objectForPrimaryKey(
+        const rentModel: any = conn.objectForPrimaryKey<rent>(
           rentsSchema.name,
           detail.id,
         )
 
         rentModel.user.seconds = timeRemaining
+        rentModel.dateUpdated = new Date()
       })
     } catch (error: any) {
       console.error(error.message)
@@ -135,14 +136,14 @@ const RentedCard: React.FC<props> = ({
       Toast.show({
         type: 'warning',
         text1: 'Device Status',
-        text2: `${detail.device.model} is pause`,
+        text2: `${detail.device?.model} is pause`,
       })
     } else {
       BackgroundTimer.start()
       Toast.show({
         type: 'success',
         text1: 'Device Status',
-        text2: `${detail.device.model} is running`,
+        text2: `${detail.device?.model} is running`,
       })
     }
     setRunning((prevState) => !prevState)
@@ -153,7 +154,7 @@ const RentedCard: React.FC<props> = ({
     Toast.show({
       type: 'success',
       text1: 'Device Rent',
-      text2: `${detail.device.model} is available now`,
+      text2: `${detail.device?.model} is available now`,
     })
   }
 
@@ -216,8 +217,15 @@ const RentedCard: React.FC<props> = ({
           <Text
             numberOfLines={1}
             ellipsizeMode='tail'
+            // eslint-disable-next-line react-native/no-inline-styles
+            style={{ ...styles.modelName, fontSize: 16 }}>
+            {detail.device?.brand.name}
+          </Text>
+          <Text
+            numberOfLines={1}
+            ellipsizeMode='tail'
             style={styles.modelName}>
-            {`${detail.device.brand.name} ${detail.device.model}`}
+            {detail.device?.model}
           </Text>
           <Text
             numberOfLines={1}
@@ -350,12 +358,12 @@ const styles = StyleSheet.create({
   renterName: {
     fontFamily: secondaryFont.regular,
     color: primaryColor,
-    fontSize: 22,
+    fontSize: 18,
   },
   cost: {
     color: primaryColor,
     fontFamily: secondaryFont.regular,
-    fontSize: 18,
+    fontSize: 16,
   },
   date: {
     color: primaryColor,

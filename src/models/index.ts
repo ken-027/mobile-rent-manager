@@ -1,7 +1,7 @@
 /** @format */
 import Realm from 'realm'
-import RNFS from 'react-native-fs'
-import { storagePermission } from '../utils/permissions'
+// import RNFS from 'react-native-fs'
+// import { storagePermission } from '../utils/permissions'
 const { UUID } = Realm.BSON
 
 export const deviceSchema: Realm.ObjectSchema = {
@@ -26,6 +26,7 @@ export const deviceSchema: Realm.ObjectSchema = {
       type: 'bool',
       default: true,
     },
+    color: 'int',
   },
   primaryKey: 'id',
 }
@@ -42,8 +43,14 @@ export const rentsSchema: Realm.ObjectSchema = {
       type: 'date',
       default: new Date(),
     },
+    dateUpdated: {
+      type: 'date',
+      default: new Date(),
+    },
     user: 'Users',
     status: 'string',
+    seconds: 'int',
+    coins: 'double',
   },
   primaryKey: 'id',
 }
@@ -56,8 +63,6 @@ export const usersSchema: Realm.ObjectSchema = {
       default: () => new UUID(),
     },
     name: 'string',
-    seconds: 'int',
-    coins: 'double',
   },
   primaryKey: 'id',
 }
@@ -69,28 +74,31 @@ export const logsSchema: Realm.ObjectSchema = {
       type: 'uuid',
       default: () => new UUID(),
     },
-    rent: 'Rents',
+    device: 'Devices',
     dateAdded: {
       type: 'date',
       default: new Date(),
     },
+    user: 'Users',
+    status: 'string',
+    seconds: 'int',
+    coins: 'double',
   },
   primaryKey: 'id',
 }
 
-const externalDirPath = RNFS.ExternalStorageDirectoryPath
-const realmPath = `${externalDirPath}/database.realm`
+// const externalDirPath = RNFS.ExternalStorageDirectoryPath
+// const realmPath = `${externalDirPath}/database.realm`
 
 class Model {
   static connection = async () => {
-    console.log('Path', externalDirPath)
     try {
-      await storagePermission()
+      // await storagePermission()
       const conn = await Realm.open({
-        // path: 'realm-files/myrealm',
+        // path: '/storage/emulated/0/database.realm',
         // path: realmPath,
         schema: [deviceSchema, logsSchema, rentsSchema, usersSchema],
-        schemaVersion: 2,
+        schemaVersion: 4,
         encryptionKey: new Int8Array(64),
       })
       return conn

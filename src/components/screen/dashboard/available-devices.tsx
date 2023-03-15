@@ -4,16 +4,17 @@ import { StyleSheet, Text, View } from 'react-native'
 import { useState, useEffect } from 'react'
 import type { PropsWithChildren } from 'react'
 import { primaryColor, secondaryFont } from '../../../config/variableStyle'
-import { ScrollView } from 'react-native'
+import { ScrollView, Image } from 'react-native'
 import Card from '../../common/card'
 import SelectDeviceModal from './select-device-modal'
 import { Toast } from 'react-native-toast-message/lib/src/Toast'
 import { toHour } from '../../../utils/format'
-import brands from '../../../shared/brands'
 import { device } from '../../../types'
-import Model from '../../../models'
-import Icon from 'react-native-vector-icons/Ionicons'
 import { useIsFocused } from '@react-navigation/native'
+import useFetch from '../../../hooks/useFetch'
+import getDevice from '../../../services/getDevice'
+import RealmPlugin from 'realm-flipper-plugin-device'
+import Realm from 'realm'
 
 type props = PropsWithChildren<{}>
 
@@ -21,56 +22,31 @@ const AvailableDevices: React.FC<props> = ({}) => {
   const isFocus = useIsFocused()
 
   const [showModal, setshowModal] = useState<boolean>(false)
-  const [loading, setloading] = useState<boolean>(true)
-  const [deviceList, setdeviceList] = useState<any>([])
+  // const [loading, setloading] = useState<boolean>(true)
+  const { loading, data, connection } = useFetch<device[]>(getDevice(true))
+  // const [deviceList, setdeviceList] = useState<any>([])
   const [selectedDevice, setselectedDevice] = useState<device>({
-    brand: {
-      id: 0,
-      image: '',
-      name: '',
-    },
+    brand: 0,
     deleted: null,
     id: '',
     model: '',
     pricePerHour: 0,
+    available: false,
+    color: 0,
   })
 
   useEffect(() => {
-    getDevice()
+    // getDevice()
   }, [isFocus, showModal])
 
-  useEffect(() => {}, [loading, showModal])
+  useEffect(() => {
+    // console.log(data)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, showModal])
 
   const onSelect = (item: device) => {
     setshowModal(true)
     setselectedDevice(item)
-  }
-
-  const getDevice = async () => {
-    setloading(true)
-    try {
-      const conn = await Model.connection()
-      const list = await conn?.objects('Devices')
-      // let list = await Model.all()
-      const data = list
-        ?.sorted('dateAdded', true)
-        .filtered('available == true && deleted == null')
-
-      Model.close()
-
-      setdeviceList(
-        data?.map((item: any) => ({
-          id: item.id,
-          model: item.model,
-          brand: brands[item.brand],
-          pricePerHour: item.pricePerHour,
-          deleted: item.deleted,
-        })),
-      )
-      setloading(false)
-    } catch (error: any) {
-      console.error(error.message)
-    }
   }
 
   return (
@@ -102,6 +78,8 @@ const AvailableDevices: React.FC<props> = ({}) => {
         selectedDevice={selectedDevice}
       />
       <View style={styles.cardContainer}>
+        {!loading && <RealmPlugin realms={[connection as Realm]} />}
+
         <Text style={styles.cardHeader}>Available Devices</Text>
         <ScrollView
           // indicatorStyle='white'
@@ -110,12 +88,12 @@ const AvailableDevices: React.FC<props> = ({}) => {
           contentContainerStyle={{
             gap: 5,
             paddingHorizontal: 10,
-            width: deviceList?.length ? 'auto' : '100%',
-            justifyContent: deviceList?.length ? 'flex-start' : 'center',
+            width: data?.length ? 'auto' : '100%',
+            justifyContent: data?.length ? 'flex-start' : 'center',
           }}
           horizontal>
-          {deviceList?.length ? (
-            deviceList.map((item: device) => (
+          {data?.length ? (
+            data.map((item: device) => (
               <Card
                 onPress={() => onSelect(item)}
                 key={item.id}
@@ -124,14 +102,14 @@ const AvailableDevices: React.FC<props> = ({}) => {
             ))
           ) : (
             <View style={styles.noDataContainer}>
-              <Icon
-                name='ios-phone-portrait-outline'
-                size={50}
-                color={primaryColor}
-                // eslint-disable-next-line react-native/no-inline-styles
-                style={{ opacity: 0.8 }}
+              <Image
+                style={{
+                  height: '100%',
+                }}
+                resizeMode='contain'
+                source={require('../../../assets/no-device.png')}
               />
-              <Text style={styles.noData}>No available devices</Text>
+              {/* <Text style={styles.noData}>No available devices</Text> */}
             </View>
           )}
         </ScrollView>

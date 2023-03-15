@@ -18,6 +18,10 @@ export const toDateTimeFormat = (date: Date): string => {
   return moment(date).format('hh:mm A - MMM DD YYYY')
 }
 
+export const toTimeFormat = (date: Date): string => {
+  return moment(date).format('hh:mm A')
+}
+
 export const toDateFormat = (date: Date): string => {
   return moment(date).format('MMMM DD YYYY')
 }
@@ -36,4 +40,16 @@ export const dateSubDay = (dateValue: Date, interval: number = 1): Date => {
 
 export const dateEqual = (date1: Date, date2: Date): boolean => {
   return moment(date1).isSame(date2, 'dates')
+}
+
+export const startTime = (date: Date): Date => {
+  return moment(date).startOf('day').toDate()
+}
+
+export const endTime = (date: Date): Date => {
+  return moment(date).endOf('day').toDate()
+}
+
+export const startHour = (date: Date): Date => {
+  return moment(date).startOf('hour').toDate()
 }

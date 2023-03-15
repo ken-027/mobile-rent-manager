@@ -1,6 +1,13 @@
 /** @format */
 
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  TouchableOpacity,
+} from 'react-native'
 import { PropsWithChildren, useState } from 'react'
 import AppModal from '../../common/app-modal'
 import Icon from 'react-native-vector-icons/Ionicons'
@@ -12,8 +19,10 @@ import {
 } from '../../../config/variableStyle'
 import Card from '../../common/card'
 import brands from '../../../shared/brands'
-import Model, { deviceSchema } from '../../../models'
+import Model from '../../../models'
 import { device } from '../../../types'
+import colors from '../../../shared/colors'
+import addDevice from '../../../services/addDevice'
 
 type props = PropsWithChildren<{
   selectedDevice?: device | null
@@ -33,24 +42,17 @@ const DeviceModal: React.FC<props> = ({
   const [modelName, setmodelName] = useState<string>('')
   const [rentPerHour, setrentPerHour] = useState<number>(5)
   const [selectedBrand, setselectedBrand] = useState<number>(0)
+  const [selectedColor, setselectedColor] = useState<number>(0)
 
   const onAdd = async () => {
-    try {
-      const conn = await Model.connection()
+    const response = await addDevice({
+      brand: selectedBrand,
+      modelName: modelName,
+      rentPerHour: rentPerHour,
+      color: selectedColor,
+    })
 
-      await conn?.write(() => {
-        conn.create(deviceSchema.name, {
-          brand: selectedBrand,
-          model: modelName,
-          pricePerHour: +rentPerHour,
-        })
-      })
-      // deviceModel.close()
-      return true
-    } catch (error: any) {
-      console.log(error.message)
-      return false
-    }
+    return response
   }
 
   const onUpdate = async () => {
@@ -78,10 +80,11 @@ const DeviceModal: React.FC<props> = ({
         confirm: selectedDevice ? 'Update Price' : 'Add',
         cancel: 'Discard',
       }}
+      contentHeight={selectedDevice ? 320 : 420}
       visible={visible}
       onCancel={onCancel}
       onConfirm={async () => {
-        let response: boolean
+        let response
 
         if (selectedDevice) {
           response = await onUpdate()
@@ -94,7 +97,10 @@ const DeviceModal: React.FC<props> = ({
       <ScrollView contentContainerStyle={styles.container}>
         {/* eslint-disable-next-line react-native/no-inline-styles */}
         <View style={styles.group}>
-          <View>
+          <View
+            style={{
+              paddingHorizontal: 20,
+            }}>
             <Text style={styles.label}>Device Model</Text>
             {selectedDevice ? (
               <Text style={styles.labelData}>{selectedDevice.model}</Text>
@@ -106,7 +112,10 @@ const DeviceModal: React.FC<props> = ({
               />
             )}
           </View>
-          <View>
+          <View
+            style={{
+              paddingHorizontal: 20,
+            }}>
             <Text style={styles.label}>Coins/Hour</Text>
             <TextInput
               placeholder='Peso'
@@ -119,10 +128,41 @@ const DeviceModal: React.FC<props> = ({
               style={styles.input}
             />
           </View>
+          {!selectedDevice ? (
+            <View>
+              <Text style={{ ...styles.label, paddingHorizontal: 20 }}>
+                Device Color
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 10, paddingHorizontal: 20 }}>
+                {colors.map((color) => (
+                  <TouchableOpacity
+                    key={color.id}
+                    onPress={() => setselectedColor(color.id)}
+                    style={{
+                      ...styles.colorIndicator,
+                      backgroundColor: color.value.toString(),
+                    }}>
+                    {selectedColor === color.id ? (
+                      <Icon
+                        name='ios-checkmark-circle'
+                        size={20}
+                        color={secondaryColor}
+                      />
+                    ) : null}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
         </View>
         {/* eslint-disable-next-line react-native/no-inline-styles */}
         <View style={{ flex: 1, flexBasis: '50%', paddingTop: 20 }}>
-          <Text style={styles.labelSmall}>Select a brand</Text>
+          <Text style={styles.labelSmall}>
+            {selectedDevice ? 'Brand' : 'Select a brand'}
+          </Text>
           {/* eslint-disable-next-line react-native/no-inline-styles */}
           <ScrollView contentContainerStyle={{ paddingTop: 10 }}>
             {selectedDevice ? (
@@ -154,7 +194,7 @@ const DeviceModal: React.FC<props> = ({
                     onPress={() => setselectedBrand(item.id)}
                     availableDevice={{
                       ...(selectedDevice as any),
-                      brand: { ...item },
+                      brand: item.id,
                     }}
                   />
                 </View>
@@ -194,7 +234,7 @@ const styles = StyleSheet.create({
   labelData: {
     color: primaryColor,
     paddingHorizontal: 10,
-    fontSize: 16,
+    fontSize: 20,
     padding: 5,
     fontFamily: secondaryFont.bold,
   },
@@ -207,7 +247,7 @@ const styles = StyleSheet.create({
   group: {
     flexBasis: '50%',
     gap: 10,
-    padding: 20,
+    paddingVertical: 20,
     paddingRight: 0,
   },
   timeLeft: {
@@ -230,5 +270,14 @@ const styles = StyleSheet.create({
     top: 2,
     left: 2,
     zIndex: 10,
+  },
+  colorIndicator: {
+    height: 35,
+    borderRadius: 35,
+    aspectRatio: 1 / 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 0.2,
+    borderColor: primaryColor,
   },
 })

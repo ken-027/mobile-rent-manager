@@ -6,6 +6,7 @@ import Icon from 'react-native-vector-icons/Ionicons'
 import {
   borderColor,
   primaryColor,
+  redColor,
   secondaryColor,
   secondaryFont,
 } from '../../config/variableStyle'
@@ -20,6 +21,8 @@ type props = PropsWithChildren<{
   btnTextBottom?: {
     confirm: string
     cancel: string
+    confirmRed?: boolean
+    cancelRed?: boolean
   }
   contentHeight?: number
 }>
@@ -60,7 +63,11 @@ const AppModal: React.FC<props> = ({
             <TouchableOpacity
               onPress={onConfirm}
               style={styles.buttonAgree}>
-              <Text style={styles.btnTextConfirm}>
+              <Text
+                style={{
+                  ...styles.btnTextConfirm,
+                  color: btnTextBottom?.confirmRed ? redColor : primaryColor,
+                }}>
                 {btnTextBottom?.confirm || 'Confirm'}
               </Text>
             </TouchableOpacity>
@@ -69,7 +76,11 @@ const AppModal: React.FC<props> = ({
             <TouchableOpacity
               onPress={onCancel}
               style={styles.buttonCancel}>
-              <Text style={{ ...styles.btnTextConfirm }}>
+              <Text
+                style={{
+                  ...styles.btnTextConfirm,
+                  color: btnTextBottom?.cancelRed ? redColor : primaryColor,
+                }}>
                 {btnTextBottom?.cancel || 'Cancel'}
               </Text>
             </TouchableOpacity>

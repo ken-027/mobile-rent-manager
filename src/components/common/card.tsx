@@ -6,16 +6,18 @@ import {
   Text,
   TouchableHighlight,
   ImageBackground,
+  View,
 } from 'react-native'
 import type { PropsWithChildren } from 'react'
 import {
   primaryColor,
-  primaryFont,
   secondaryColor,
   secondaryFont,
 } from '../../config/variableStyle'
 import { toHour } from '../../utils/format'
 import { device, user } from '../../types'
+import brands from '../../shared/brands'
+import colors from '../../shared/colors'
 
 type props = PropsWithChildren<{
   onPress?: any
@@ -56,8 +58,17 @@ const Card: React.FC<props> = ({
         source={
           resumableUser
             ? require('../../assets/user-dark.png')
-            : availableDevice?.brand.image
+            : brands[availableDevice?.brand as number].image
         }>
+        {availableDevice?.color ? (
+          <View
+            style={{
+              ...styles.colorIndicator,
+              backgroundColor:
+                colors[availableDevice.color as number].value.toString(),
+            }}
+          />
+        ) : null}
         <Text
           numberOfLines={1}
           ellipsizeMode='tail'
@@ -67,7 +78,8 @@ const Card: React.FC<props> = ({
           }}>
           {brandOnly
             ? '\t\t\t\t\t'
-            : resumableUser?.name || availableDevice?.brand.name}
+            : resumableUser?.name ||
+              brands[availableDevice?.brand as number].name}
         </Text>
         <Text
           ellipsizeMode='tail'
@@ -92,7 +104,8 @@ const styles = StyleSheet.create({
     backgroundColor: primaryColor,
     height: 80,
     borderRadius: 15,
-    padding: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 5,
     width: 130,
     justifyContent: 'center',
     borderColor: 'rgba(63, 63, 70, 0.3)',
@@ -113,16 +126,17 @@ const styles = StyleSheet.create({
   },
   cardText: {
     color: secondaryColor,
-    fontFamily: primaryFont.semi,
+    fontFamily: secondaryFont.bold,
     includeFontPadding: false,
-    marginTop: 5,
-    transform: [{ scale: 1.8 }],
+    fontSize: 23,
+    // transform: [{ scale: 1.8 }],
     // maxWidth: '98%',
   },
   cardImage: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    ...StyleSheet.absoluteFillObject,
   },
   cardTitle: {
     fontSize: 16,
@@ -135,7 +149,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     alignSelf: 'center',
-    transform: [{ scale: 1.5 }],
+    resizeMode: 'contain',
+    // height: 80,
+    transform: [{ scale: 0.7 }],
     // margin: 5,
+  },
+  colorIndicator: {
+    height: 20,
+    borderRadius: 20,
+    aspectRatio: 1 / 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 0.2,
+    position: 'absolute',
+    borderColor: secondaryColor,
+    left: 5,
+    top: 5,
   },
 })

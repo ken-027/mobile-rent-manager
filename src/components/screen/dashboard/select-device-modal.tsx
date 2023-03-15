@@ -12,7 +12,7 @@ import Card from '../../common/card'
 import { device } from '../../../types'
 import { toHour } from '../../../utils/format'
 import coinToSeconds from '../../../utils/coinToSeconds'
-import Model, { rentsSchema } from '../../../models'
+import rentDevice from '../../../services/rentDevice'
 
 type props = PropsWithChildren<{
   selectedDevice: device
@@ -38,21 +38,6 @@ const SelectDeviceModal: React.FC<props> = ({
 
   useEffect(() => {}, [])
 
-  const makeUnavailable = async () => {
-    try {
-      const conn = await Model.connection()
-      conn?.write(() => {
-        const updateDevice: any = conn.objectForPrimaryKey(
-          'Devices',
-          selectedDevice.id,
-        )
-        updateDevice.available = false
-      })
-    } catch (error: any) {
-      console.log(error.message)
-    }
-  }
-
   return (
     <AppModal
       title='Select Device'
@@ -64,38 +49,12 @@ const SelectDeviceModal: React.FC<props> = ({
       }}
       onCancel={onCancel}
       onConfirm={async () => {
-        let response: 'success' | 'fail'
-        try {
-          const model = await Model.connection()
-          let userModel: unknown, deviceModel: unknown
-
-          await model?.write(() => {
-            userModel = model.objects('Users').filtered('name == $0', user)[0]
-            deviceModel = model.objectForPrimaryKey(
-              'Devices',
-              selectedDevice.id,
-            )
-
-            console.log(coinToSeconds(selectedDevice.pricePerHour, coins))
-
-            model.create(rentsSchema.name, {
-              device: deviceModel,
-              user: userModel || {
-                name: user,
-                seconds: coinToSeconds(selectedDevice.pricePerHour, coins),
-                coins: coins,
-              },
-              status: 'started',
-            })
-
-            makeUnavailable()
-          })
-
-          response = 'success'
-        } catch (error: any) {
-          response = 'fail'
-          console.error(error.message)
-        }
+        const response = await rentDevice({
+          userName: user,
+          deviceId: selectedDevice.id,
+          pricePerHour: selectedDevice.pricePerHour,
+          coins: coins,
+        })
 
         onConfirm(response)
       }}

@@ -16,16 +16,12 @@ import {
   redColor,
 } from '../../../config/variableStyle'
 import type { PropsWithChildren } from 'react'
-import { brand } from '../../../types'
-
-type device = {
-  model: string
-  brand: brand
-  pricePerHour: number
-}
+import { device as typeDevice } from '../../../types'
+import colors from '../../../shared/colors'
+import brands from '../../../shared/brands'
 
 type props = PropsWithChildren<{
-  device: device
+  device: typeDevice
   onDelete: any
   onEdit: any
 }>
@@ -38,12 +34,19 @@ const DeviceCard: React.FC<props> = ({ device, onDelete, onEdit }) => {
           style={styles.logoHolder}
           resizeMode='contain'
           imageStyle={styles.logo}
-          source={device.brand.image as never}
+          source={brands[device.brand].image as never}
+        />
+
+        <View
+          style={{
+            ...styles.colorIndicator,
+            backgroundColor: colors[device.color].value.toString(),
+          }}
         />
       </View>
       <View style={styles.detailContainer}>
         <View style={styles.detailHolder}>
-          <Text style={styles.brandName}>{device.brand.name}</Text>
+          <Text style={styles.brandName}>{brands[device.brand].name}</Text>
           <Text style={styles.modelName}>{device.model}</Text>
           <Text style={styles.pricePerHour}>
             Php {device.pricePerHour}/Hour
@@ -126,6 +129,7 @@ const styles = StyleSheet.create({
     maxWidth: 200,
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
   logoHolder: {
     // flex: 1,
@@ -166,5 +170,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     overflow: 'hidden',
+  },
+  colorIndicator: {
+    height: 25,
+    borderRadius: 25,
+    aspectRatio: 1 / 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 0.2,
+    position: 'absolute',
+    borderColor: secondaryColor,
+    left: 5,
+    top: 5,
   },
 })

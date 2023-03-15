@@ -1,6 +1,6 @@
 /** @format */
 
-import { StyleSheet, Text, View } from 'react-native'
+import { StyleSheet, Text, View, Image } from 'react-native'
 import { useEffect, useState } from 'react'
 import type { PropsWithChildren } from 'react'
 import { primaryColor, secondaryFont } from '../../../config/variableStyle'
@@ -10,26 +10,23 @@ import ResumableUserModal from './resumable-user-modal'
 import Toast from 'react-native-toast-message'
 import { rent, user } from '../../../types'
 import Model, { rentsSchema } from '../../../models'
-import Icon from 'react-native-vector-icons/Ionicons'
 
 type props = PropsWithChildren<{}>
 
 const ResumableUsers: React.FC<props> = ({}) => {
   const [showModal, setshowModal] = useState<boolean>(false)
-  const [isRefresh, setisRefresh] = useState<boolean>(false)
+  // const [isRefresh, setisRefresh] = useState<boolean>(false)
   const [users, setUsers] = useState<user[]>([])
   const [selectedUser, setselectedUser] = useState<user>({
-    coins: 0,
     id: '',
     name: '',
-    seconds: 0,
   })
 
   useEffect(() => {
     getAccounts()
-  }, [isRefresh])
+  }, [])
 
-  const onRefresh = () => setisRefresh((prevState) => !prevState)
+  // const onRefresh = () => setisRefresh((prevState) => !prevState)
 
   const onResume = (selectUser: user) => {
     setselectedUser(selectUser)
@@ -44,7 +41,7 @@ const ResumableUsers: React.FC<props> = ({}) => {
         ?.objects(rentsSchema.name)
         .filtered(`user.seconds > 0 && status == 'removed'`)
 
-      console.log(getUsers)
+      // console.log(getUsers)
 
       setUsers(
         getUsers.map((item: rent) => ({
@@ -54,7 +51,7 @@ const ResumableUsers: React.FC<props> = ({}) => {
           name: item.user.name,
         })),
       )
-      console.log(users)
+      // console.log(users)
       // conn?.close()
     } catch (error: any) {
       console.error(error.message)
@@ -104,14 +101,14 @@ const ResumableUsers: React.FC<props> = ({}) => {
             ))
           ) : (
             <View style={styles.noDataContainer}>
-              <Icon
-                name='ios-people-outline'
-                size={50}
-                color={primaryColor}
-                // eslint-disable-next-line react-native/no-inline-styles
-                style={{ opacity: 0.8 }}
+              <Image
+                resizeMode='contain'
+                style={{
+                  height: '100%',
+                }}
+                source={require('../../../assets/no-account.png')}
               />
-              <Text style={styles.noData}>No resumable accounts</Text>
+              {/* <Text style={styles.noData}>No resumable accounts</Text> */}
             </View>
           )}
         </ScrollView>

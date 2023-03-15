@@ -1,7 +1,7 @@
 /** @format */
 
 import { useState, useEffect } from 'react'
-import { LogBox, StyleSheet, Text, View } from 'react-native'
+import { LogBox, StyleSheet, Text, View, Image } from 'react-native'
 import type { PropsWithChildren } from 'react'
 import { primaryColor, secondaryFont } from '../../../config/variableStyle'
 import RentedCard from '../../common/rented-card'
@@ -13,7 +13,6 @@ import { AndroidImportance } from '@notifee/react-native'
 import Model, { rentsSchema } from '../../../models'
 import { rent } from '../../../types'
 import brands from '../../../shared/brands'
-import Icon from 'react-native-vector-icons/Ionicons'
 
 type props = PropsWithChildren<{}>
 
@@ -28,24 +27,23 @@ const RentedDevices: React.FC<props> = ({}) => {
   const [selectedRent, setselectedRent] = useState<rent>({
     id: '',
     dateAdded: new Date(),
+    dateUpdated: new Date(),
     device: {
-      brand: {
-        id: 0,
-        image: '',
-        name: '',
-      },
-      deleted: false,
+      brand: 0,
+      available: false,
+      deleted: null,
       id: '',
       model: '',
       pricePerHour: 0,
+      color: 0,
     },
     status: 'stopped',
     user: {
       id: '',
-      coins: 0,
-      seconds: 0,
       name: '',
     },
+    coins: 0,
+    seconds: 0,
   })
 
   const [dialog, setDialog] = useState<{
@@ -80,38 +78,42 @@ const RentedDevices: React.FC<props> = ({}) => {
     setLoading(true)
     try {
       const rentModel = await Model.connection()
-      const list: any = await rentModel
-        ?.objects(rentsSchema.name)
+      const list = await rentModel
+        ?.objects<rent>(rentsSchema.name)
         .filtered(
           `device.available == $0 && status != 'removed' && device.deleted == null`,
           false,
         )
       // console.log(list?.length)
-      Model.close()
-      setrentList(
-        list.map((item: any) => ({
-          id: item.id,
-          dateAdded: item.dateAdded,
-          device: {
-            brand: {
-              id: brands[item.device.brand]?.id,
-              image: brands[item.device.brand]?.image,
-              name: brands[item.device.brand]?.name,
+      // Model.close()
+      if (list) {
+        setrentList(
+          list.map((item: rent) => ({
+            id: item.id,
+            dateAdded: item.dateAdded,
+            dateUpdated: item.dateUpdated,
+            device: item.device && {
+              brand: {
+                id: brands[Number(item.device.brand)].id,
+                image: brands[Number(item.device.brand)]?.image,
+                name: brands[Number(item.device.brand)]?.name,
+              },
+              deleted: item?.device.deleted,
+              available: item.device.available,
+              id: item.device.id,
+              model: item.device.model,
+              pricePerHour: item.device.pricePerHour,
             },
-            deleted: item.device.deleted,
-            id: item.device.id,
-            model: item.device.model,
-            pricePerHour: item.device.pricePerHour,
-          },
-          status: item.status,
-          user: {
-            id: item.user.id,
-            coins: item.user.coins,
-            seconds: item.user.seconds,
-            name: item.user.name,
-          },
-        })),
-      )
+            status: item.status,
+            user: {
+              id: item.user.id,
+              coins: item.user.coins,
+              seconds: item.user.seconds,
+              name: item.user.name,
+            },
+          })),
+        )
+      }
     } catch (error: any) {
       console.error(error.message)
     }
@@ -125,14 +127,22 @@ const RentedDevices: React.FC<props> = ({}) => {
       const conn = await Model.connection()
 
       await conn?.write(() => {
-        const rentModel: any = conn.objectForPrimaryKey(
+        const rentModel = conn.objectForPrimaryKey<any>(
           rentsSchema.name,
           selectedRent.id,
         )
 
-        rentModel.user.seconds = 0
-        rentModel.status = 'stopped'
-        rentModel.device = null
+        if (rentModel) {
+          rentModel.user.seconds = 0
+          rentModel.status = 'stopped'
+          rentModel.dateUpdated = new Date()
+
+          if (rentModel.device) {
+            rentModel.device.available = true
+          }
+
+          rentModel.device = null
+        }
       })
 
       success = true
@@ -143,7 +153,7 @@ const RentedDevices: React.FC<props> = ({}) => {
     if (success) {
       notification(
         'Timer Stop',
-        `${selectedRent?.device.model} is available now`,
+        `${selectedRent.device?.model} is available now`,
         {
           id: 'default',
           name: 'default channel',
@@ -153,7 +163,7 @@ const RentedDevices: React.FC<props> = ({}) => {
       Toast.show({
         type: 'success',
         text1: 'Device Rent',
-        text2: `${selectedRent?.device.model} is available now`,
+        text2: `${selectedRent?.device?.model} is available now`,
       })
     }
   }
@@ -246,14 +256,17 @@ const RentedDevices: React.FC<props> = ({}) => {
                       const conn = await Model.connection()
 
                       await conn?.write(() => {
-                        const rentModel: any = conn.objectForPrimaryKey(
+                        const rentModel = conn.objectForPrimaryKey<rent>(
                           rentsSchema.name,
                           item.id,
                         )
 
-                        rentModel.status =
-                          rentModel.status === 'paused' ? 'started' : 'paused'
-                        rentModel.user.seconds = timeRemaining
+                        if (rentModel) {
+                          rentModel.status =
+                            rentModel.status === 'paused' ? 'started' : 'paused'
+                          rentModel.user.seconds = timeRemaining
+                          rentModel.dateUpdated = new Date()
+                        }
                       })
                       onRefresh()
                     } catch (error: any) {
@@ -277,13 +290,18 @@ const RentedDevices: React.FC<props> = ({}) => {
                   try {
                     const conn = await Model.connection()
                     conn?.write(() => {
-                      const rentModel: any = conn.objectForPrimaryKey(
+                      const rentModel = conn.objectForPrimaryKey<rent>(
                         rentsSchema.name,
                         item.id,
                       )
-                      rentModel.device.available = true
-                      rentModel.status = 'removed'
-                      rentModel.user.seconds = timeLeft
+                      if (rentModel) {
+                        rentModel.status = 'removed'
+                        rentModel.user.seconds = timeLeft
+                        rentModel.dateUpdated = new Date()
+                        if (rentModel.device) {
+                          rentModel.device.available = true
+                        }
+                      }
                     })
                     onRefresh()
                   } catch (error: any) {
@@ -297,12 +315,10 @@ const RentedDevices: React.FC<props> = ({}) => {
           })
         ) : (
           <View style={styles.noDataContainer}>
-            <Icon
-              name='ios-phone-portrait-outline'
-              size={70}
-              color={primaryColor}
-              // eslint-disable-next-line react-native/no-inline-styles
-              style={{ opacity: 0.8 }}
+            <Image
+              style={{ width: '50%' }}
+              resizeMode='contain'
+              source={require('../../../assets/no-rent.png')}
             />
             <Text style={styles.noDataText}>No rented devices</Text>
           </View>
@@ -336,7 +352,7 @@ const styles = StyleSheet.create({
   noDataText: {
     fontFamily: secondaryFont.regular,
     color: primaryColor,
-    fontSize: 16,
+    fontSize: 18,
     marginTop: 5,
   },
 })
